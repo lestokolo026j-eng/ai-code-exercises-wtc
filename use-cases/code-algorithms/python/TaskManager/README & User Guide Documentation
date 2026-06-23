@@ -1,0 +1,237 @@
+README & User Guide Documentation
+Task Manager CLI Project
+
+1. Project Information
+Property	Details
+Project Name	Task Manager CLI
+Language	Python 3.8+
+External Libraries	None required
+Storage	JSON file (tasks.json)
+Entry Point	cli.py
+
+Project Structure
+TaskManager/
+├── cli.py            # Entry point — handles all commands
+├── task_manager.py   # Business logic — create, update, delete
+├── models.py         # Task blueprint — defines Task, Status, Priority
+├── storage.py        # Persistence — reads/writes tasks.json
+├── task_priority.py  # Scoring algorithm — ranks by importance
+├── task_parser.py    # Text parser — converts free text to tasks
+├── task_list_merge.py# Merge — combines two task lists
+└── tests/            # Test suite
+
+2. Prompt 1 — Comprehensive README
+Prompt used: Generate a comprehensive README.md including project description, installation, usage examples, features, configuration, troubleshooting, contributing guidelines, and license.
+
+Task Manager CLI
+A lightweight command-line task management application built in Python. Manage your tasks directly from the terminal — no internet connection or external services required.
+
+Features
+•	Create tasks with titles, descriptions, priorities and due dates
+•	Filter tasks by status: todo, in_progress, review, done
+•	Automatic priority scoring based on urgency and due dates
+•	Tag tasks with custom labels like blocker or critical
+•	Track overdue tasks at a glance
+•	View task statistics and weekly completion trends
+
+Requirements
+•	Python 3.8 or higher
+•	No external libraries required — uses Python built-ins only
+
+Installation
+1.	Clone the repository:
+git clone https://github.com/wethinkcode/ai-code-exercises.git
+2.	Navigate to the TaskManager folder:
+cd ai-code-exercises/use-cases/code-algorithms/python/TaskManager
+3.	Verify Python is installed:
+python --version
+That's it — no pip install needed!
+
+Quick Start
+# Create your first task
+python cli.py create "Buy groceries" -p 2 -u 2026-06-20
+
+# List all tasks
+python cli.py list
+
+# Mark a task as done
+python cli.py status <task_id> done
+
+# View statistics
+python cli.py stats
+
+Full Command Reference
+Command	Description
+create "title" -p 2 -u 2026-06-20 -t "tag"	Create a new task
+list	List all tasks
+list -s todo	Filter by status
+list -p 3	Filter by priority
+list -o	Show overdue tasks only
+status <id> in_progress	Update task status
+priority <id> 4	Update task priority
+due <id> 2026-06-30	Update due date
+tag <id> blocker	Add a tag
+untag <id> blocker	Remove a tag
+show <id>	View task details
+delete <id>	Delete a task
+stats	View statistics
+
+Priority Levels
+Value	Level
+1	Low
+2	Medium
+3	High
+4	Urgent
+
+Task Status Workflow
+todo  →  in_progress  →  review  →  done
+
+Configuration
+Tasks are saved to tasks.json in the folder where you run the app. To use a custom file path:
+from task_manager import TaskManager
+tm = TaskManager(storage_path="my_tasks.json")
+
+Troubleshooting
+Problem	Solution
+'python' is not recognized	Try 'python3' instead of 'python'
+Task ID not found	Run 'python cli.py list' to see valid IDs
+Invalid date format	Use YYYY-MM-DD format e.g. 2026-06-20
+tasks.json not found	Created automatically when you add your first task
+Permission denied	Check you have write access to the folder
+
+Contributing
+4.	Fork the repository
+5.	Create a feature branch: git checkout -b feature/my-feature
+6.	Commit your changes: git commit -m 'Add my feature'
+7.	Push to the branch: git push origin feature/my-feature
+8.	Open a Pull Request
+
+License
+MIT License — free to use, modify and distribute.
+
+3. Prompt 2 — Step-by-Step Feature Guide
+Prompt used: Create a step-by-step guide for creating and managing tasks using the priority scoring system. Target audience: Beginners.
+
+Guide: Creating and Managing Tasks by Priority
+This guide walks you through creating tasks, setting priorities, adding tags, and using the scoring system to stay on top of your most urgent work.
+
+Prerequisites
+•	Python 3.8+ installed on your computer
+•	Task Manager cloned and terminal open in the TaskManager folder
+•	You should see: PS C:\...\TaskManager> in your terminal
+
+Step 1 — Create your first task
+python cli.py create "Fix homepage bug" -p 3 -u 2026-06-17
+You should see: Created task with ID: a3f8c2d1-xxxx
+Write down the first 8 characters of your ID — you will need it for the next steps!
+
+Step 2 — Create a second task with lower priority
+python cli.py create "Update profile page" -p 2 -u 2026-06-25
+
+Step 3 — List all tasks
+python cli.py list
+You will see both tasks with priority symbols:
+!    = Low
+!!   = Medium
+!!!  = High
+!!!! = Urgent
+
+Step 4 — Start working on a task
+python cli.py status <your_task_id> in_progress
+Replace <your_task_id> with the first 8 characters from Step 1.
+
+Step 5 — Add a blocker tag to boost priority score
+python cli.py tag <your_task_id> blocker
+This adds +8 points to the task's importance score! Tags must be lowercase.
+
+Step 6 — Check for overdue tasks
+python cli.py list -o
+Any tasks past their due date appear here. These get +35 bonus points in the scoring system.
+
+Step 7 — Mark a task complete
+python cli.py status <your_task_id> done
+The task is now stamped with a completion timestamp and its score drops by 50 points.
+
+Step 8 — View your statistics
+python cli.py stats
+Shows totals by status, priority level, overdue count, and tasks completed in the last 7 days.
+
+Common Mistakes to Avoid
+•	Forgetting the -u flag means no due date — task won't appear in overdue lists
+•	Using wrong date format — always YYYY-MM-DD, not DD/MM/YYYY
+•	Tags must be lowercase — 'Blocker' won't trigger the +8 score boost
+•	Copying the full UUID instead of just the first 8 characters
+
+Troubleshooting
+Problem	Solution
+Task not found	Run list to find the correct ID
+Date rejected	Use YYYY-MM-DD format exactly
+Tag not boosting score	Make sure tag is all lowercase
+Status update fails	Check valid statuses: todo, in_progress, review, done
+
+4. Prompt 3 — FAQ Document
+Prompt used: Create a comprehensive FAQ for beginners new to command-line tools, focusing on getting started, core features, and troubleshooting.
+
+Getting Started
+Q: Do I need to install anything extra?
+A: No! Task Manager only uses Python's built-in libraries. As long as you have Python 3.8 or higher, you are ready to go.
+Q: How do I know if Python is installed?
+A: Open your terminal and type: python --version. If you see a version number, you are good. If not, download Python from python.org.
+Q: Where are my tasks saved?
+A: In a file called tasks.json in whatever folder you run the app from. It is created automatically when you add your first task.
+Q: How do I see all available commands?
+A: Run python cli.py with no arguments and it will print a full list of commands with descriptions.
+Q: Do I need an internet connection?
+A: No — everything runs locally on your computer. Tasks are saved to a file on your disk, not in the cloud.
+
+Core Features
+Q: What do the priority numbers mean?
+A: 1=Low, 2=Medium (default), 3=High, 4=Urgent. Higher numbers get more attention in the automatic priority scoring system.
+Q: What is the difference between priority and score?
+A: Priority is what YOU set manually. Score is what the app calculates automatically based on priority, due date, tags, and recent activity. Two HIGH priority tasks can have very different scores depending on their deadlines.
+Q: Can I change a task's status back to TODO after marking it done?
+A: Yes — run: python cli.py status <id> todo. However, the completed_at timestamp will remain from when it was originally marked done.
+Q: What tags get a score boost?
+A: Only these three exact lowercase tags: blocker, critical, urgent. Each adds +8 points to the task score. Other tags are stored but do not affect scoring.
+Q: What happens if I forget to set a due date?
+A: The task still works normally. It just won't appear in overdue lists and won't receive due date bonus points in the scoring system.
+Q: How does the priority scoring system work?
+A: Each task earns a score based on: priority level (10-60 pts), due date urgency (up to +35 pts), completion status (up to -50 pts), special tags (+8 pts), and recent activity (+5 pts). Higher scores appear first when sorting by importance.
+
+Troubleshooting
+Q: I get 'python is not recognized' — what do I do?
+A: Try python3 instead of python. On some systems Python 3 is installed as python3 rather than python.
+Q: My task ID is very long — do I need the whole thing?
+A: No! Commands only need the first 8 characters of the ID. You can see these in the list output next to each task.
+Q: I deleted a task by mistake — can I get it back?
+A: Unfortunately no — deletion is permanent. Always double-check the task ID before running the delete command.
+Q: The app says 'Task not found' but I can see the task in list — why?
+A: You may have copied the wrong ID. Task IDs are case-sensitive — copy carefully from the list output, or use only the first 8 characters shown.
+Q: Can two people use the same tasks.json file at the same time?
+A: Not safely — simultaneous writes could corrupt the file. For shared task lists, use separate files and the merge feature to combine them periodically.
+Q: My tasks.json file seems corrupted — what do I do?
+A: Open tasks.json in a text editor and check it is valid JSON. If it is broken, you may need to delete it and start fresh — unfortunately there is no built-in backup system.
+
+5. Reflections
+Most Challenging Aspects to Document
+•	The priority scoring system — explaining the difference between priority (manual) and score (calculated) required careful wording for beginners
+•	The silent email failure in the API exercise earlier — behaviour that doesn't show in the response is hard to document without reading the code carefully
+•	Task ID format — UUIDs are unfamiliar to beginners and needed extra explanation
+
+How I Adjusted Prompts for Better Results
+•	Specified 'Beginners new to command-line tools' as target audience — produced much simpler, friendlier language
+•	Added the full project structure to Prompt 1 so AI could accurately describe each file's purpose
+•	For the FAQ, listed known pain points (python vs python3, ID format) to ensure they were covered
+
+What I Learned About Document Structure
+•	README should answer: what is it, how do I install it, how do I use it — in that exact order
+•	Step-by-step guides work best when each step produces visible output the user can verify
+•	FAQs are most useful when organized by the user's journey: getting started → using features → fixing problems
+•	Code blocks should always show the exact command with realistic example values, not placeholders
+
+How I Would Use This in My Development Workflow
+•	Write README with Prompt 1 as soon as a project reaches a working state
+•	Use Prompt 2 for every major feature — especially ones with multiple steps or edge cases
+•	Build the FAQ incrementally — add questions whenever a teammate or user asks something unexpected
+•	Store all docs in the same repo as code so they stay in sync with changes
+•	Review AI-generated docs by actually following the instructions from scratch to catch gaps
