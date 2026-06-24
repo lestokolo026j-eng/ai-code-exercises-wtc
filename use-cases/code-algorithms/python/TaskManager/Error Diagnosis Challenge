@@ -1,0 +1,137 @@
+cccc
+Off By One Error — IndexError: list index out of range
+
+1. Error Description
+The Error Message
+Traceback (most recent call last):
+  File "stock_manager.py", line 25, in <module>
+    main()
+  File "stock_manager.py", line 17, in main
+    print_inventory_report(items)
+  File "stock_manager.py", line 10, in print_inventory_report
+    for i in range(len(items) + 1):
+IndexError: list index out of range
+
+The Broken Code
+def print_inventory_report(items):
+    for i in range(len(items) + 1):  # <-- the bug is here
+        print(f"Item {i+1}: {items[i][name]} - Qty: {items[i][quantity]}")
+
+def main():
+    items = [
+        {"name": "Laptop", "quantity": 15},
+        {"name": "Mouse", "quantity": 30},
+        {"name": "Keyboard", "quantity": 25}
+    ]
+    print_inventory_report(items)
+
+What This Error Means in Plain English
+The program tried to access position 3 in a list that only has positions 0, 1, and 2. Like reaching for a book on a shelf that does not exist.
+Python lists are zero-indexed. A list with 3 items has valid positions 0, 1, and 2 only. Position 3 is empty, so Python crashes with IndexError.
+
+Most Relevant Line in the Stack Trace
+Always find YOUR filename in the stack trace first — that is where the bug lives:
+File "stock_manager.py", line 10, in print_inventory_report
+    for i in range(len(items) + 1):
+Everything above this line is Python internal machinery. Your file is where the problem starts.
+
+2. Root Cause Identification
+Chain of Events Leading to the Error
+Step	What Happened
+1	main() creates items list with 3 items: Laptop, Mouse, Keyboard
+2	Valid list indexes are 0, 1, 2 only
+3	len(items) = 3, then + 1 makes it 4
+4	range(4) produces: 0, 1, 2, 3
+5	Loop runs fine for indexes 0, 1, 2
+6	Loop tries index 3 — nothing there — CRASH
+
+Visual Explanation
+List:    [Laptop,  Mouse,   Keyboard]
+Index:      0        1          2     <- only goes to 2!
+
+range(len(items) + 1) = range(4) = [0, 1, 2, 3]
+                                              ^
+                          This index does not exist!
+
+The entire error is caused by just two characters: + 1. Removing them completely fixes the bug.
+
+3. Suggested Solutions
+Fix 1 — Remove the + 1 (Simplest)
+# BROKEN
+for i in range(len(items) + 1):
+
+# FIXED
+for i in range(len(items)):
+The loop now produces 0, 1, 2 — exactly matching the valid indexes.
+
+Fix 2 — Use enumerate() (Recommended Best Practice)
+for i, item in enumerate(items, start=1):
+    print(f"Item {i}: {item[name]} - Quantity: {item[quantity]}")
+enumerate() gives you both the index AND the item automatically. No manual index calculation means off-by-one errors become impossible.
+
+Comparing All Three Approaches
+Approach	Safety	Readability
+range(len(items) + 1)	CRASHES	Poor — easy to make mistakes
+range(len(items))	Works	OK — still manual indexing
+enumerate(items, start=1)	Works	Best — no index math needed
+
+Tests to Verify the Fix
+def test_empty_list():
+    # Should not crash with empty list
+    print_inventory_report([])
+
+def test_single_item():
+    # Should print exactly one item
+    print_inventory_report([{"name": "Laptop", "quantity": 15}])
+
+def test_multiple_items():
+    # Should print all items without crashing
+    print_inventory_report([{"name": "A", "quantity": 1}, {"name": "B", "quantity": 2}])
+
+4. Prompt 2 — Deep Root Cause Diagnosis
+Anti-Pattern Identified
+Using range(len(items)) to loop over a list is old-fashioned Python. Every time you write range(len()), you create a risk of off-by-one errors. Modern Python uses enumerate() or direct iteration instead.
+
+Debugging Tools for IndexError
+Tool	How to Use
+print(len(items))	Add before loop to verify list size
+print(i)	Add inside loop to track which index fails
+Python debugger pdb	Add: import pdb; pdb.set_trace() before the loop
+VS Code debugger	Set a breakpoint on the for loop line and step through
+
+5. Prompt 3 — Dependency Check
+This error has NO dependency issues. It is a pure logic error in the code. No pip install or version changes are needed.
+
+When to Use Each Prompt
+Error Type	Use Prompt 3?
+IndexError — list index out of range	No — logic error in your code
+ImportError — No module named X	Yes — missing package
+ModuleNotFoundError	Yes — package not installed
+AttributeError on library function	Yes — wrong library version
+MemoryError	No — resource or logic issue
+
+Key insight: Before reaching for Prompt 3, ask — does this error mention a library name? If it only mentions your own files, it is almost always a logic error, not a dependency issue.
+
+6. Final Error Analysis — Submission Format
+Error Analysis: Off By One Error (IndexError)
+Error Description
+The program crashed trying to access list position 3 in a list that only has positions 0, 1, and 2. In plain English — it reached for a book on a shelf that does not exist. Python lists are zero-indexed, meaning a list with 3 items has valid positions 0, 1, and 2 only.
+
+Root Cause
+The + 1 in range(len(items) + 1) makes the loop run one step too far. With 3 items, range(4) produces 0, 1, 2, 3. The loop succeeds for 0, 1, and 2 then crashes on 3 because no item exists at that position.
+
+Solution
+# Option 1 — Minimum fix
+for i in range(len(items)):
+
+# Option 2 — Best practice
+for i, item in enumerate(items, start=1):
+    print(f"Item {i}: {item[name]} - Quantity: {item[quantity]}")
+
+Learning Points
+•	Python lists are zero-indexed — N items means indexes 0 to N-1, never N itself
+•	Always find YOUR filename in a stack trace first — that is where your bug lives
+•	enumerate() is safer than range(len()) and eliminates off-by-one errors completely
+•	When you see IndexError, immediately check any range() calls for + 1 mistakes
+•	This was a logic error, not a dependency issue — no pip commands were needed
+•	Writing tests for empty lists and single items catches this type of bug early
