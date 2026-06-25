@@ -1,0 +1,123 @@
+Task Manager Codebase
+Exploration Challenge — Full Reflection
+
+1. High-Level Application Architecture
+The Task Manager is a command-line Python application that allows users to create, update, prioritise, and track tasks from the terminal. It uses no external libraries or database — everything runs on Python's built-in tools and saves data to a local JSON file.
+
+Architecture Pattern: Layered Architecture
+The codebase follows a clean layered pattern where each layer has one job and only communicates with the layer directly below it:
+
+cli.py	→	The front door. Receives user commands from the terminal and passes them inward.
+task_manager.py	→	The brain. Contains all business logic — creating, updating, deleting, filtering tasks.
+storage.py	→	The memory. Reads and writes task data to a JSON file on disk.
+models.py	→	The blueprint. Defines what a Task looks like and what it can do.
+
+Technology Stack
+Library	Purpose
+argparse	Parses terminal commands and flags
+uuid	Generates unique IDs for each task
+enum	Defines fixed categories (priority, status)
+datetime	Handles due dates and timestamps
+json	Saves and loads task data from disk
+
+2. How the Three Key Features Work
+Feature 1: Task Creation
+When a user types a create command, data flows through four layers before a task is saved:
+
+cli.py	→	Collects title, description, priority, due date, and tags from the command
+task_manager.py	→	Validates the date format, converts priority number to TaskPriority enum
+models.py	→	Stamps task with auto-generated UUID, sets status=TODO, records created_at
+storage.py	→	Adds task to the list and saves everything to tasks.json
+
+Key design decision:
+When no priority is specified, the default is MEDIUM (value=2). This is set in task_manager.py as a default parameter, not in models.py — keeping the blueprint clean and the business rule in the logic layer.
+
+Feature 2: Task Prioritisation
+Priorities are defined as a Python Enum with numeric values, allowing mathematical comparison:
+
+Priority Level	Value
+LOW	1
+MEDIUM	2
+HIGH	3
+URGENT	4
+
+Users can filter tasks by exact priority using the --priority flag. Importantly, this is a filter (exact match only), not a sort — the app returns only tasks that match a specific level, not all tasks ordered by urgency.
+
+Key discovery:
+The app has no automatic sorting by priority. Running 'python cli.py list' returns tasks in the order they were created, not by importance. This is a missing feature that could be added.
+
+Feature 3: Task Completion
+Marking a task as DONE is deliberately handled differently from all other status changes. Here is the complete data flow:
+
+User types	→	python cli.py status <task_id> done
+cli.py	→	Passes task_id and 'done' to task_manager.update_task_status()
+task_manager.py	→	Detects DONE as a special case — fetches the full task object first
+models.py	→	mark_as_done() sets status=DONE, completed_at=now, updated_at=now
+storage.py	→	Saves entire updated task list back to tasks.json
+cli.py	→	Prints confirmation message to user
+
+State changes when marked DONE:
+Field	Change
+status	IN_PROGRESS → DONE
+completed_at	None → exact timestamp
+updated_at	old timestamp → new timestamp
+
+3. Interesting Design Pattern Discovered
+The Special Case Pattern
+The most interesting design decision in the entire codebase is how DONE status is handled differently from every other status:
+
+if new_status == TaskStatus.DONE:
+    task = self.storage.get_task(task_id)
+    task.mark_as_done()        # special method
+    self.storage.save()
+else:
+    self.storage.update_task(task_id, status=new_status)  # general method
+
+All other status changes use the general update_task() method. But DONE gets its own dedicated path because it needs to record a completion timestamp — something no other status change requires.
+
+Think of it like a receipt. When you buy something, the shop does not just update your order status — they also print a receipt with the exact time. That receipt is completed_at. Other status changes do not need a receipt, just a label update.
+
+This pattern — giving special treatment to one case that needs extra behaviour — is called the Special Case Pattern. It keeps the general code clean while handling the exception explicitly.
+
+4. Challenges and How the Prompts Helped
+What Was Most Challenging
+•	Understanding why cli.py is the entry point and not task_manager.py — the name 'task_manager' made it feel like the most important file
+•	Figuring out the difference between updated_at and completed_at — both are timestamps, so why have two?
+•	Understanding what 'filter by priority' actually means vs sorting — I assumed list would return tasks in priority order
+•	Tracing what happens when a task is marked DONE — the special case path was not obvious at first
+
+How Each Prompt Helped
+Prompt 1 — Understanding a Specific Feature
+This prompt helped me trace task creation end to end by copying actual code snippets and asking for the execution flow. The most valuable moment was discovering that DONE status has a completely separate code path — I would have missed this just reading the files individually.
+
+Prompt 2 — Deepen Understanding Through Guided Questions
+Instead of just explaining things, this prompt asked me questions that made me think. The guided question about filtering vs sorting was the biggest insight — I had assumed the app sorted tasks by priority but it actually just filters by exact match. That is a real functional difference that would affect how I used or extended the app.
+
+Prompt 3 — Mapping Data Flow
+This prompt helped me see the codebase as a system rather than separate files. Drawing the flow from user input all the way to tasks.json made the architecture click. It also surfaced potential failure points I had not considered — like what happens if someone marks an already-completed task as done again.
+
+5. Potential Points of Failure
+Through the data flow analysis, these gaps were identified in the current codebase:
+
+Failure Point	Current Handling
+Task ID not found	Handled — returns None and prints error
+Invalid status value typed	NOT handled — app would crash
+File save error (disk full)	NOT handled — app would crash
+Task already marked DONE	NOT handled — completed_at gets overwritten silently
+Empty task title	NOT handled — creates a task with no title
+
+6. Domain Glossary
+Key terms discovered during codebase exploration:
+
+Term	Meaning
+Entity	A main 'thing' in the system — in this app, Task is the only entity
+TaskStatus	The stage a task is in: TODO, IN_PROGRESS, REVIEW, or DONE
+TaskPriority	How urgent a task is, on a scale of 1 (LOW) to 4 (URGENT)
+State machine	A system where something can only be in one state at a time
+UUID	A randomly generated unique ID so no two tasks ever share the same ID
+completed_at	The exact timestamp when a task was marked DONE — set once, never changed
+updated_at	The last time anything about the task changed — updates every time
+Special Case Pattern	Giving one specific scenario its own dedicated code path
+Entry point	The file Python runs first — in this app, that is cli.py
+Layered architecture	Code organised in layers where each layer only talks to the one below it
+
