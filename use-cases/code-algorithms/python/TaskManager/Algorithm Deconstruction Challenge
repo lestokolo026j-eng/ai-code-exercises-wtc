@@ -1,0 +1,170 @@
+Algorithm Deconstruction Challenge
+Task Priority Sorting & Filtering
+
+Algorithm Overview
+The task_priority.py file contains a weighted scoring algorithm that determines which tasks deserve the most attention. Instead of sorting by a single factor like priority level, it combines five different factors into one score, then ranks tasks from highest to lowest.
+
+The Three Functions
+Function	Purpose
+calculate_task_score(task)	Gives each task a points total based on 5 factors
+sort_tasks_by_importance(tasks)	Sorts all tasks from highest score to lowest
+get_top_priority_tasks(tasks, limit=5)	Returns only the top N tasks from the sorted list
+
+Prompt 1: Step-by-Step Algorithm Analysis
+Initial Understanding
+•	I think this function calculates scores and sorts tasks
+•	Inputs: a task object. Returns: a score number
+•	Confused about: how exactly points get added and subtracted
+
+The Scoring System — Full Breakdown
+Every task starts with a base score from its priority, then gains or loses points based on four more factors:
+
+Factor	Points
+LOW priority	10 pts (1 × 10)
+MEDIUM priority	20 pts (2 × 10)
+HIGH priority	40 pts (4 × 10)
+URGENT priority	60 pts (6 × 10)
+Overdue (past deadline)	+35 pts
+Due today	+20 pts
+Due in 1-2 days	+15 pts
+Due this week (≤7 days)	+10 pts
+No due date	+0 pts
+Status = DONE	-50 pts
+Status = REVIEW	-15 pts
+Has blocker/critical/urgent tag	+8 pts
+Updated today	+5 pts
+
+Concrete Example
+Task A: MEDIUM priority, due in 3 days, IN_PROGRESS, no tags
+20 (medium) + 10 (due this week) + 0 + 0 = 30 points
+
+Task B: LOW priority, overdue, tagged 'blocker'
+10 (low) + 35 (overdue) + 0 + 8 (blocker) = 53 points
+
+Task B ranks higher than Task A even though it's LOW priority — because being overdue with a blocker tag matters more than being MEDIUM with time to spare.
+
+Key Insight: The any() Function
+any(tag in ['blocker', 'critical', 'urgent'] for tag in task.tags)
+This checks if AT LEAST ONE tag matches the special list. It stops checking the moment it finds one match — like asking 'does anyone here speak French?' and stopping as soon as one person raises their hand.
+
+Understanding Questions & Answers
+Q1: A task is URGENT and DONE — what is its score?
+60 (urgent) - 50 (done) = 10 points
+Very low — which makes sense. You don't want finished tasks appearing at the top even if they were urgent.
+
+Q2: Why do overdue tasks get MORE points instead of less?
+The algorithm is a helper, not a punishment system. Its job is to show what needs attention most urgently. An overdue task desperately needs attention — pushing it to the top makes practical sense.
+
+Q3: What weight would you give a new CRITICAL priority level?
+I'd give it 9. The gaps between levels increase as urgency rises: LOW→MEDIUM is +1, MEDIUM→HIGH is +2, HIGH→URGENT is +2. Following this pattern, URGENT→CRITICAL should be at least +3, making it 9. CRITICAL tasks would start at 90 points.
+
+Prompt 2: Decipher Code with Unclear Intent
+The Confusing Code
+def sort_tasks_by_importance(tasks):
+    task_scores = [(calculate_task_score(task), task) for task in tasks]
+    sorted_tasks = [task for _, task in sorted(task_scores, key=lambda x: x[0], reverse=True)]
+    return sorted_tasks
+
+Better Variable Names
+Current Name	Better Name
+task_scores	tasks_with_scores
+x	score_task_pair
+_	ignored_score
+sorted_tasks	tasks_by_priority
+
+The Decorate-Sort-Undecorate Pattern
+This is a classic three-step pattern:
+•	DECORATE — attach a score to each task: [(80, TaskA), (53, TaskB)]
+•	SORT — sort pairs by the score number, highest first
+•	UNDECORATE — strip scores away, return just the tasks in order
+
+Pseudocode — Plain English Version
+FOR each task in tasks:
+    calculate its importance score
+    pair the score with the task → (score, task)
+
+SORT all pairs by score, highest first
+
+EXTRACT just the tasks, discarding the scores
+
+RETURN tasks from most to least important
+
+Understanding Questions & Answers
+Q1: What happens with tied scores?
+The code doesn't handle ties — two tasks with equal scores appear in their original list order. A real system might break ties by creation date.
+
+Q2: What happens with an empty list?
+It returns an empty list without crashing. Python handles empty lists gracefully in loops and sorting.
+
+Q3: Why use _ instead of a real variable name?
+The _ is a Python convention meaning 'I know this value exists but I deliberately don't need it.' It tells anyone reading the code: don't worry about this, it's intentionally being ignored.
+
+Q4: What ONE word change makes lowest priority appear first?
+# Change True to False
+sorted(task_scores, key=lambda x: x[0], reverse=False)
+
+Prompt 3: Complex Logic and Control Flow
+Control Flow Diagram
+Here is the complete decision path through calculate_task_score():
+
+START → task comes in
+  │
+  ▼
+Set base score (priority × 10)
+  │
+  ▼
+Has due date? ──NO──→ skip, score unchanged
+  │YES
+  ▼
+Calculate days_until_due
+  ├── < 0?   YES → +35 (overdue)
+  ├── == 0?  YES → +20 (due today)
+  ├── <= 2?  YES → +15 (due very soon)
+  ├── <= 7?  YES → +10 (due this week)
+  └── > 7?       → +0  (plenty of time)
+  │
+  ▼
+Status check
+  ├── DONE?    YES → -50
+  ├── REVIEW?  YES → -15
+  └── other?       → +0
+  │
+  ▼
+Has blocker/critical/urgent tag? YES → +8
+  │
+  ▼
+Updated today? YES → +5
+  │
+  ▼
+RETURN final score
+
+Why Condition Order Matters
+The due date conditions must be checked from most urgent to least urgent. If <= 7 was checked first, an overdue task would match it and only get +10 instead of +35 — completely wrong!
+
+Potential Logic Bugs Discovered
+Bug	Description
+No score cap	A task could theoretically score very high with the right combination
+DONE tasks still visible	URGENT + DONE = 10 points — still positive, could appear in top 5
+Case sensitive tags	'Blocker' would NOT match 'blocker' — must be exact lowercase
+Days vs hours	Updated 23 hours ago counts as 0 days and gets the +5 bonus
+
+Scenario Predictions & Answers
+Scenario 1: MEDIUM, no due date, TODO, no tags, updated 3 days ago
+20 (medium) + 0 (no due date) + 0 (todo) + 0 (no tags) + 0 (3 days ago) = 20 points
+
+Scenario 2: LOW, overdue, DONE, tagged 'blocker'
+10 (low) + 35 (overdue) - 50 (done) + 8 (blocker) + 0 = 3 points
+Very low despite being overdue — DONE's -50 penalty wipes out almost everything else. Intentional design.
+
+Scenario 3: HIGH, due in exactly 7 days, REVIEW, updated today
+40 (high) + 10 (<=7 days) - 15 (review) + 0 (no tags) + 5 (today) = 40 points
+
+Key Insights & Learning Points
+•	Weighted scoring is more powerful than single-factor sorting — it balances WHAT a task is with WHEN it needs doing
+•	The order of elif conditions is critical — checking most urgent first prevents wrong scores
+•	The -50 DONE penalty is a deliberate design choice to hide completed work from active views
+•	The Decorate-Sort-Undecorate pattern is a reusable technique for sorting objects by calculated values
+•	any() is efficient — it stops at the first match rather than checking every tag
+•	Using _ as a variable name is a Python convention meaning 'intentionally ignored'
+•	The algorithm has gaps: no tie-breaking, case-sensitive tags, and no score cap
+
