@@ -1,0 +1,318 @@
+Code Documentation Exercise
+Task Priority Scoring Algorithm
+
+1. Original Code Selected
+Selected algorithm: calculate_task_score() from task_priority.py — the weighted scoring system that determines task importance.
+
+Reason for selection: This function is the most complex in the codebase. It has no existing documentation, uses non-obvious scoring logic, and contains several edge cases that would confuse a new developer without explanation.
+
+Original Undocumented Code
+def calculate_task_score(task):
+    priority_weights = {
+        TaskPriority.LOW: 1,
+        TaskPriority.MEDIUM: 2,
+        TaskPriority.HIGH: 4,
+        TaskPriority.URGENT: 6
+    }
+    score = priority_weights.get(task.priority, 0) * 10
+
+    if task.due_date:
+        days_until_due = (task.due_date - datetime.now()).days
+        if days_until_due < 0:
+            score += 35
+        elif days_until_due == 0:
+            score += 20
+        elif days_until_due <= 2:
+            score += 15
+        elif days_until_due <= 7:
+            score += 10
+
+    if task.status == TaskStatus.DONE:
+        score -= 50
+    elif task.status == TaskStatus.REVIEW:
+        score -= 15
+
+    if any(tag in ['blocker', 'critical', 'urgent'] for tag in task.tags):
+        score += 8
+
+    days_since_update = (datetime.now() - task.updated_at).days
+    if days_since_update < 1:
+        score += 5
+
+    return score
+
+def sort_tasks_by_importance(tasks):
+    task_scores = [(calculate_task_score(task), task) for task in tasks]
+    sorted_tasks = [task for _, task in sorted(task_scores, key=lambda x: x[0], reverse=True)]
+    return sorted_tasks
+
+def get_top_priority_tasks(tasks, limit=5):
+    sorted_tasks = sort_tasks_by_importance(tasks)
+    return sorted_tasks[:limit]
+
+2. Prompt 1 — Comprehensive Function Documentation
+Prompt used: Generate comprehensive Python docstring documentation including description, parameters, return values, exceptions, examples, and edge cases.
+
+Generated Documentation
+calculate_task_score()
+"""
+Calculate a weighted importance score for a task based on
+multiple factors including priority, due date urgency,
+completion status, tags, and recent activity.
+
+The scoring system works as follows:
+    - Priority contributes the base score (10 to 60 points)
+    - Due date urgency adds bonus points (up to 35)
+    - Completion status can reduce the score (up to -50)
+    - Special tags add a small boost (+8)
+    - Recent activity adds a small boost (+5)
+
+Args:
+    task (Task): A Task object containing the following
+                 required attributes:
+        priority (TaskPriority): The task's priority level
+        due_date (datetime | None): Task deadline or None
+        status (TaskStatus): Current status of the task
+        tags (list[str]): List of tag strings
+        updated_at (datetime): When task was last modified
+
+Returns:
+    int: The calculated importance score. Higher scores
+         indicate tasks needing more immediate attention.
+         Typical range is -10 to 103.
+
+Raises:
+    AttributeError: If task object is missing required
+                    attributes
+
+Example:
+    >>> task = Task(
+    ...     title='Fix login bug',
+    ...     priority=TaskPriority.URGENT,
+    ...     due_date=datetime.now(),
+    ...     tags=['blocker']
+    ... )
+    >>> calculate_task_score(task)
+    93
+
+Notes:
+    - Tags are case-sensitive: 'Blocker' will NOT match 'blocker'
+    - No due_date means 0 due-date bonus points
+    - DONE tasks receive -50 penalty
+    - Recent activity uses calendar days, not hours
+"""
+
+sort_tasks_by_importance()
+"""
+Sort a list of tasks by calculated importance score,
+highest first. Uses the Decorate-Sort-Undecorate pattern.
+
+Args:
+    tasks (list[Task]): Task objects to sort. Can be empty.
+
+Returns:
+    list[Task]: New list sorted highest to lowest score.
+                Returns empty list if input is empty.
+
+Notes:
+    - Ties broken by original list order
+    - Original list is not modified
+"""
+
+get_top_priority_tasks()
+"""
+Return the top N highest-priority tasks from a list.
+
+Args:
+    tasks (list[Task]): Task objects to filter.
+    limit (int): Maximum tasks to return. Defaults to 5.
+
+Returns:
+    list[Task]: Up to limit Task objects, highest first.
+                Returns all tasks if fewer than limit exist.
+"""
+
+3. Prompt 2 — Intent, Logic & Inline Comments
+Prompt used: Explain intent at a high level, break down logic step by step, identify assumptions and edge cases, suggest inline comments, and note potential improvements.
+
+High Level Intent
+This module answers one question: What should I work on right now? It balances urgency (due date) with importance (priority) — neither factor alone is enough to rank tasks correctly.
+
+Code with Suggested Inline Comments
+def calculate_task_score(task):
+    # Non-linear weights: gap between HIGH(4) and URGENT(6)
+    # is intentionally wider to make urgent tasks stand out
+    priority_weights = {
+        TaskPriority.LOW: 1,
+        TaskPriority.MEDIUM: 2,
+        TaskPriority.HIGH: 4,
+        TaskPriority.URGENT: 6
+    }
+
+    # Multiply by 10 to create scoring headroom for
+    # additions and subtractions below
+    score = priority_weights.get(task.priority, 0) * 10
+
+    if task.due_date:
+        # Negative days = task is already past deadline
+        days_until_due = (task.due_date - datetime.now()).days
+
+        # Check most urgent case first — order matters here!
+        # If <= 7 was checked first, overdue tasks would only
+        # get +10 instead of +35
+        if days_until_due < 0:    # overdue
+            score += 35
+        elif days_until_due == 0: # due today
+            score += 20
+        elif days_until_due <= 2: # due very soon
+            score += 15
+        elif days_until_due <= 7: # due this week
+            score += 10
+        # No else — tasks due in 8+ days get +0
+
+    # Large penalty pushes completed tasks to bottom
+    # even if they were previously high priority
+    if task.status == TaskStatus.DONE:
+        score -= 50
+    elif task.status == TaskStatus.REVIEW:
+        score -= 15
+
+    # Tags must be lowercase to match — 'Blocker' won't work
+    if any(tag in ['blocker', 'critical', 'urgent'] for tag in task.tags):
+        score += 8
+
+    # Uses calendar days not hours — task updated 23hrs ago
+    # on previous calendar day gets 0 bonus
+    days_since_update = (datetime.now() - task.updated_at).days
+    if days_since_update < 1:
+        score += 5
+
+    return score
+
+Assumptions in the Code
+•	Tags are always stored as lowercase strings
+•	updated_at is always set and never None
+•	Due dates are stored as datetime objects, not strings
+•	Tasks always have a valid TaskPriority enum value
+
+Potential Improvements Identified
+Improvement	Reason
+Add minimum score floor (e.g. 0)	Prevents confusing negative scores
+Make weights configurable	Hardcoded values are hard to tune without code changes
+Break ties by created_at date	Equal scores currently resolve unpredictably
+Make tags case-insensitive	Use tag.lower() to prevent silent mismatches
+Add score cap	No upper limit means unusual combinations score very high
+
+4. Prompt 3 — Google Style Conversion
+Prompt used: Convert the Prompt 1 documentation to Google Style Python docstring format, preserving all information.
+
+Google Style uses section headers like Args:, Returns:, Raises:, Example:, and Note: with consistent 4-space indentation. It is the most readable style for everyday Python projects.
+
+Google Style Documentation
+calculate_task_score()
+"""Calculates a weighted importance score for a task.
+
+Scores each task based on five factors: priority level,
+due date urgency, completion status, special tags, and
+recent activity. Higher scores indicate tasks needing
+more immediate attention.
+
+Args:
+    task (Task): A Task object with the following attributes:
+
+        priority (TaskPriority): The task's priority level.
+        due_date (datetime | None): Task deadline, or None
+            if no deadline is set.
+        status (TaskStatus): Current workflow status.
+        tags (list[str]): List of lowercase tag strings.
+        updated_at (datetime): Timestamp of last modification.
+
+Returns:
+    int: Importance score. Higher is more urgent. Typical
+        range is -10 to 103 with no enforced cap or floor.
+
+Raises:
+    AttributeError: If task is missing required attributes.
+
+Example:
+    >>> task = Task(
+    ...     title='Fix login bug',
+    ...     priority=TaskPriority.URGENT,
+    ...     due_date=datetime.now(),
+    ...     tags=['blocker']
+    ... )
+    >>> calculate_task_score(task)
+    93
+
+Note:
+    Tags are case-sensitive. 'Blocker' will not match
+    'blocker' and will not receive the +8 bonus.
+    The recent activity bonus uses calendar days, not
+    hours — a task updated 23 hours ago on a previous
+    calendar day receives no bonus."""
+
+sort_tasks_by_importance()
+"""Sorts tasks by calculated importance score, highest first.
+
+Uses the Decorate-Sort-Undecorate pattern to score and
+rank all tasks without modifying the original list.
+
+Args:
+    tasks (list[Task]): Task objects to sort. Can be empty.
+
+Returns:
+    list[Task]: New list sorted highest to lowest score.
+        Returns empty list if input is empty.
+
+Example:
+    >>> sorted_tasks = sort_tasks_by_importance(all_tasks)
+    >>> sorted_tasks[0].title
+    'Most urgent task'
+
+Note:
+    Ties in score are broken by original list order.
+    The input list is not modified."""
+
+get_top_priority_tasks()
+"""Returns the top N highest-priority tasks from a list.
+
+Convenience wrapper around sort_tasks_by_importance()
+that slices the result to the specified limit.
+
+Args:
+    tasks (list[Task]): Task objects to filter.
+    limit (int): Maximum tasks to return. Defaults to 5.
+        If fewer tasks exist than limit, all are returned.
+
+Returns:
+    list[Task]: Up to limit tasks, highest priority first.
+
+Example:
+    >>> top = get_top_priority_tasks(all_tasks, limit=3)
+    >>> len(top)
+    3"""
+
+5. Comparing All Three Prompts
+Prompt	Best Contribution
+Prompt 1 — Comprehensive	Formal structure: args, returns, raises, examples
+Prompt 2 — Intent & Logic	Inline comments explaining the WHY behind each decision
+Prompt 3 — Style Conversion	Consistent Google Style formatting for team readability
+
+6. Reflections
+Most Challenging Parts for AI
+•	Identifying the exact score range without actually running the code
+•	Spotting the calendar days vs hours edge case — required human review to catch
+•	Understanding that .get() with default 0 means KeyError won't actually be raised
+
+What Extra Information I Needed to Provide
+•	The Task object structure from models.py so AI understood the parameter
+•	The TaskPriority and TaskStatus enum values so examples made sense
+•	Context that tags must be lowercase — not obvious from the function alone
+
+How I Would Use This Approach in My Own Projects
+•	Run Prompt 1 first to generate the full documentation skeleton quickly
+•	Run Prompt 2 to add inline comments and catch assumptions I might have missed
+•	Run Prompt 3 to convert to whatever style my team uses for consistency
+•	Always review AI-generated docs against actual code behaviour before publishing
+•	Use the improvements list from Prompt 2 as a starting point for code review
+
