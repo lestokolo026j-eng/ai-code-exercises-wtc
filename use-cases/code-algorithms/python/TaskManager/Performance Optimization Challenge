@@ -1,0 +1,170 @@
+Performance Optimization Challenge
+Slow Code Analysis — Python Data Processing
+
+1. Original Slow Code
+Selected scenario: Slow Code Analysis — Python inventory analysis function.
+File: inventory_analysis.py
+
+def find_product_combinations(products, target_price, price_margin=10):
+    results = []
+    for i in range(len(products)):
+        for j in range(len(products)):
+            if i != j:
+                product1 = products[i]
+                product2 = products[j]
+                combined_price = product1['price'] + product2['price']
+                if (target_price - price_margin) <= combined_price <= (target_price + price_margin):
+                    if not any(r['product1']['id'] == product2['id'] and
+                               r['product2']['id'] == product1['id'] for r in results):
+                        pair = {
+                            'product1': product1,
+                            'product2': product2,
+                            'combined_price': combined_price,
+                            'price_difference': abs(target_price - combined_price)
+                        }
+                        results.append(pair)
+    results.sort(key=lambda x: x['price_difference'])
+    return results
+
+Context
+Property	Detail
+Purpose	Find pairs of products whose combined price is within a target range
+Input size	5,000+ products
+Current performance	~25 seconds to run
+Environment	Python 3.9, web server with 4GB RAM
+Impact	Makes product recommendation page slow to load
+
+2. My Initial Observations (Before AI Analysis)
+These are my honest first impressions before any AI explanation — including the ones that were incorrect.
+
+Question 1: How many total comparisons with 5,000 products?
+My answer: 25,000,000
+CORRECT! 5,000 x 5,000 = 25 million comparisons. This was the key insight that explained why the code takes 25 seconds.
+
+Question 2: What happens as results grows bigger?
+My answer: It gets slower
+CORRECT — but I did not know why. The reason is that every time a valid pair is found, the code searches through ALL previous results to check for duplicates. As results grows from 10 to 1,000 to 10,000 entries, each new check takes longer and longer.
+
+Question 3: What does this function do?
+My answer: I did not know
+After explanation: The function finds pairs of products whose combined price falls within a target range. Like finding two items in a shop that together cost roughly R500.
+
+3. Prompt 1 — Slow Code Analysis
+Prompt used: Explain why this code is slow, identify specific operations causing the slowdown, suggest 2-3 improvements, explain performance concepts, and suggest measurement tools.
+
+Why Is It Slow — Plain English
+Imagine you have 5,000 people in a room and you need to introduce every person to every other person. That is 25 million introductions! That is exactly what the nested loops are doing — comparing every product with every other product.
+
+The Three Performance Problems
+Problem 1 — Nested Loops (The Main Culprit)
+for i in range(len(products)):      # runs 5,000 times
+    for j in range(len(products)):  # runs 5,000 x 5,000 = 25 MILLION times
+25 million comparisons for just 5,000 products. This is called O(n squared). When products double to 10,000, comparisons quadruple to 100 million!
+
+Problem 2 — Slow Duplicate Checking
+if not any(r['product1']['id'] == product2['id'] and
+           r['product2']['id'] == product1['id'] for r in results):
+Every time a valid pair is found, the code reads through ALL previous results to check for duplicates. As results grows, this search gets slower and slower — like re-reading an entire book every time you want to add one new sentence.
+
+Problem 3 — Generating Then Skipping Self-Comparisons
+if i != j:  # skip same product
+The code generates all 25 million pairs first, THEN skips ones where a product is compared with itself. Better to never generate them in the first place.
+
+4. Suggested Optimizations
+Fix 1 — Start j at i+1 Instead of 0
+# SLOW — 25 million comparisons
+for i in range(len(products)):
+    for j in range(len(products)):
+        if i != j:
+
+# FASTER — 12.5 million comparisons, no duplicates possible
+for i in range(len(products)):
+    for j in range(i + 1, len(products)):
+Starting j at i + 1 means: never compares a product with itself, never creates duplicate pairs like (A,B) and (B,A), and cuts comparisons exactly in half.
+
+Fix 2 — Remove the Duplicate Check Entirely
+# DELETE THIS — no longer needed with Fix 1
+if not any(r['product1']['id'] == product2['id'] and
+           r['product2']['id'] == product1['id'] for r in results):
+Fix 1 makes duplicates impossible, so this expensive search can be completely removed.
+
+Fix 3 — Two-Pointer Technique (Most Powerful)
+# Sort products by price first
+sorted_products = sorted(products, key=lambda x: x['price'])
+left, right = 0, len(sorted_products) - 1
+
+while left < right:
+    combined = sorted_products[left]['price'] + sorted_products[right]['price']
+    if abs(combined - target_price) <= price_margin:
+        results.append({
+            'product1': sorted_products[left],
+            'product2': sorted_products[right],
+            'combined_price': combined,
+            'price_difference': abs(target_price - combined)
+        })
+        left += 1
+    elif combined < target_price - price_margin:
+        left += 1
+    else:
+        right -= 1
+Instead of comparing every pair, two pointers move toward each other intelligently. Reduces 25 million comparisons to roughly 5,000 — almost instant!
+
+5. Performance Before vs After
+Version	Comparisons	Estimated Time
+Original code	25,000,000	~25 seconds
+Fix 1 only — j starts at i+1	12,500,000	~12 seconds
+Fix 1 + Fix 2 — remove duplicate check	12,500,000	~8 seconds
+All three fixes — two-pointer technique	~5,000	<1 second
+
+Total improvement: from 25 seconds to under 1 second — 25 times faster with the same output.
+
+6. Performance Concepts Learned
+O(n squared) — Quadratic Complexity
+A loop inside a loop means time grows as the square of input size. Double your data = four times slower. With 5,000 products: 25 million operations. With 10,000 products: 100 million operations. Always ask: can I avoid nested loops?
+
+Two-Pointer Technique
+When data is sorted, use two pointers moving toward each other instead of comparing every pair. One pointer starts at the cheapest product, one at the most expensive. They move inward until they meet. Turns O(n squared) into O(n).
+
+Early Exit
+Stop searching the moment you find what you need. Do not check all 25 million pairs if you only need the first 10 results. This is sometimes called short-circuit evaluation.
+
+Measuring Tools
+# Simple timing — already built into the original code
+import time
+start = time.time()
+results = find_product_combinations(products, 500, 50)
+print(f'Took {time.time() - start:.2f} seconds')
+
+# Detailed profiling — shows which line is slowest
+import cProfile
+cProfile.run('find_product_combinations(product_list, 500, 50)')
+
+7. Final Submission — Performance Analysis
+Performance Analysis: Slow Code — O(n squared) Nested Loops
+Problem Description
+find_product_combinations() takes approximately 25 seconds for 5,000 products because of 25 million nested loop comparisons. This makes the product recommendation page too slow to load for users.
+
+Root Cause — Three Compounding Issues
+1.	Nested loops produce 25 million comparisons for 5,000 products — O(n squared) complexity
+2.	Duplicate check searches ALL previous results on every valid pair found — gets slower as results grows
+3.	Self-comparisons are generated then skipped instead of never being generated
+
+Optimizations Applied
+4.	Start j at i+1 — halves comparisons and eliminates duplicates in one change
+5.	Remove duplicate check — no longer needed after Fix 1
+6.	Two-pointer technique — reduces comparisons from 25 million to roughly 5,000
+
+Performance Improvement
+Metric	Before	After
+Comparisons	25,000,000	~5,000
+Execution time	~25 seconds	<1 second
+Improvement	-	25x faster
+
+Key Learning Points
+•	Nested loops are the most common cause of slow Python code — always check for loop-inside-loop patterns
+•	When you see O(n squared), ask: can I sort the data and use two pointers instead?
+•	My initial observations were partially correct — I calculated 25 million comparisons correctly and knew speed would decrease, but did not know WHY or HOW to fix it
+•	The duplicate check was a hidden second performance problem I would not have spotted without the AI prompt
+•	Performance tools like cProfile show you exactly which line is slowest — always measure before and after optimizing
+•	O(n squared) problems almost always have an O(n) solution when you sort the data first
+
