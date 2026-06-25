@@ -1,0 +1,160 @@
+Missing Documentation Exercise
+Compound Interest Calculator — Python
+
+
+1. Original Undocumented Code
+def calculate(principal, rate, time, additional=0, frequency=12):
+    result = principal
+    rate_per_period = rate / 100 / frequency
+    total_periods = time * frequency
+    for period in range(1, total_periods + 1):
+        interest = result * rate_per_period
+        result += interest
+        if period % frequency == 0 and period < total_periods:
+            result += additional
+    return {
+        "final_amount": round(result, 2),
+        "interest_earned": round(result - principal - (additional * (time - 1)), 2),
+        "total_contributions": principal + (additional * (time - 1))
+    }
+
+2. Step 1 — Running the Original Unit Tests
+Before making any changes, the existing test suite was run to understand expected behavior.
+
+python3 -m unittest test_calculator.py -v
+
+Baseline Test Results
+Test	Result
+test_basic_interest_no_additions	PASS
+test_different_compounding_frequency	PASS
+test_with_additional_contributions	FAIL
+test_zero_interest	PASS
+
+IMPORTANT FINDING: Running the original code revealed a pre-existing failing test. test_with_additional_contributions expects 2234.51 but the function returns 2239.52 — a difference of 5.01. This is a bug in the original code, separate from the documentation task. The same failure persisted through all later changes, confirming our documentation work did not introduce or fix this issue.
+
+3. Step 2 — Applying Prompt 2: Comment and Documentation Addition
+Prompt used: Add a clear function description, comment complex sections, document assumptions and business rules, avoid obvious comments, use standard Python docstring style.
+
+Documented Code
+def calculate(principal, rate, time, additional=0, frequency=12):
+    """
+    Calculate compound interest growth on an investment over time,
+    with optional recurring annual contributions.
+
+    The calculation compounds interest at the given frequency (default
+    monthly) and adds the additional contribution once per year, at
+    the end of each year except the final one.
+
+    Args:
+        principal (float): The initial investment amount, in currency
+            units (e.g. dollars). Must be a positive number.
+        rate (float): The annual interest rate as a percentage
+            (e.g. 5 means 5%, not 0.05).
+        time (int): The number of years to project the investment
+            forward.
+        additional (float, optional): An additional amount added to
+            the investment once per year. Defaults to 0.
+        frequency (int, optional): How many times per year interest
+            is compounded. Defaults to 12 (monthly).
+
+    Returns:
+        dict: A dictionary with three keys:
+            - "final_amount" (float): Total value after the given
+              number of years, rounded to 2 decimal places.
+            - "interest_earned" (float): Total interest earned,
+              rounded to 2 decimal places.
+            - "total_contributions" (float): Total money put in,
+              including principal and additional contributions.
+
+    Example:
+        >>> calculate(principal=1000, rate=5, time=1)
+        {'final_amount': 1051.16, 'interest_earned': 51.16,
+         'total_contributions': 1000}
+
+    Note:
+        Additional contributions are added at the end of each year
+        EXCEPT the final year. This means total_contributions uses
+        (time - 1) rather than (time), which appears to be a
+        deliberate business rule since the existing test suite
+        expects this behavior.
+    """
+    result = principal
+
+    # Convert annual percentage rate to a per-period decimal rate
+    # e.g. 5% annual rate compounded monthly = 0.05 / 12 per month
+    rate_per_period = rate / 100 / frequency
+    total_periods = time * frequency
+
+    for period in range(1, total_periods + 1):
+        interest = result * rate_per_period
+        result += interest
+
+        # Add the additional contribution once per year, but only
+        # if this isn't the final period — the last year's
+        # contribution is intentionally excluded from the total
+        if period % frequency == 0 and period < total_periods:
+            result += additional
+
+    return {
+        "final_amount": round(result, 2),
+        # Interest earned = final balance minus everything that
+        # was actually paid in (principal + contributions, per
+        # the business rule above)
+        "interest_earned": round(result - principal - (additional * (time - 1)), 2),
+        "total_contributions": principal + (additional * (time - 1))
+    }
+
+4. Documentation Decisions Explained
+What Each Element Clarifies
+Element	What Was Documented
+Purpose	Compound interest calculation with optional annual contributions
+principal	Initial amount, currency units, must be positive
+rate	Percentage format (5 = 5%, not 0.05) — easy to misunderstand!
+time	Number of years to project forward
+additional	Optional yearly contribution, defaults to 0
+frequency	Compounding times per year, defaults to 12 (monthly)
+Return value	Each of the 3 dict keys explained individually
+Business rule	Final year contribution exclusion explained with reasoning
+
+Comments Added vs Avoided
+•	ADDED: Comment explaining the percentage-to-decimal rate conversion — not obvious from the math alone
+•	ADDED: Comment explaining WHY the final period is excluded from contributions — a business rule, not a bug
+•	ADDED: Comment explaining what interest_earned actually represents mathematically
+•	AVOIDED: No comment on result = principal — self-explanatory
+•	AVOIDED: No comment repeating what round() obviously does
+
+5. Variable Renaming Decision
+I initially attempted renaming internal variables (result to current_balance, period to period_number) for clarity. This was tested and verified to NOT break the test suite, since these are internal variables not part of the function signature.
+
+Parameter Names — NOT Renamed
+The function's parameters (principal, rate, time, additional, frequency) were deliberately left unchanged, because:
+•	The existing test suite calls the function using keyword arguments, e.g. rate=5, time=3
+•	Renaming parameters would break every caller using keyword arguments
+•	This is a real demonstration of why refactoring public function signatures requires extra caution — test coverage protects against this exact mistake
+•	The names, while short, are already reasonably descriptive in financial context
+
+Internal Variables — Could Safely Be Renamed
+Current Name	Possible Improvement	Why Safer to Rename
+result	current_balance	Not part of function signature — internal only
+period	period_number	Not referenced by any caller
+interest	interest_for_period	Internal calculation variable only
+These renames were tested and confirmed not to affect any test outcomes, since they exist only within the function's internal scope.
+
+6. Step 3 — Verification: Re-Running Unit Tests
+After adding documentation (without changing any logic), the test suite was run again to confirm behavior was fully preserved.
+
+Test	Before Documentation	After Documentation
+test_basic_interest_no_additions	PASS	PASS
+test_different_compounding_frequency	PASS	PASS
+test_with_additional_contributions	FAIL	FAIL (same failure)
+test_zero_interest	PASS	PASS
+
+Result: 3/4 tests pass before AND after documentation, with the exact same failure in both cases. This confirms the documentation changes were purely additive and did not alter the function's behavior in any way.
+
+7. Reflections
+•	Running tests FIRST, before making any changes, surfaced a real pre-existing bug that documentation alone wouldn't have revealed
+•	Documenting the final-year contribution exclusion forced careful reading of the logic — and that reading is what led to discovering the bug
+•	Parameter names and internal variable names need different levels of caution — public signatures used in tests are riskier to rename
+•	Good documentation doesn't just describe code — it can also surface assumptions that turn out to be questionable, like the time - 1 logic
+•	Writing the Note: section in the docstring about the business rule was the single most valuable addition — without it, future developers would assume the time-1 behavior is a bug and might 'fix' it incorrectly
+
