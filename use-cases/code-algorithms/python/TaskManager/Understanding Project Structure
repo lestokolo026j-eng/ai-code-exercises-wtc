@@ -1,0 +1,141 @@
+Exercise Part 1
+Understanding Project Structure
+Task Manager — Python  
+
+Step 1 — Exploring the Codebase
+The TaskManager project was cloned from the WeThinkCode GitHub repository and navigated to using the terminal. The following commands were used to explore the structure:
+
+git clone https://github.com/wethinkcode/ai-code-exercises.git
+cd ai-code-exercises/use-cases/code-algorithms/python/TaskManager
+ls
+
+Directory Structure
+TaskManager/
+├── cli.py              (6817 bytes)
+├── exercise-findings.md
+├── models.py           (1304 bytes)
+├── README.md           (1682 bytes)
+├── storage.py          (3530 bytes)
+├── task_list_merge.py  (4512 bytes)
+├── task_manager.py     (4086 bytes)
+├── task_parser.py      (4013 bytes)
+├── task_priority.py    (2033 bytes)
+└── tests/
+
+Key Configuration Files
+No package.json, requirements.txt, or pom.xml was found. This confirms the project uses only Python built-in libraries — no external dependencies are required.
+
+Step 2 — My Initial Understanding (Before AI Help)
+These are my honest first impressions before any AI assistance — including gaps in my understanding.
+
+Question	My Answer
+What does this app do?	Manages tasks from the terminal
+Technologies I can see	Python
+What is the main file?	task_manager.py
+What does cli.py do?	Handles commands the user types
+What does storage.py do?	Stores everything (saves data)
+What does models.py do?	I was confused — did not know what models meant in code
+What does task_priority.py do?	Not sure
+What does task_list_merge.py do?	Not sure
+
+Step 3 — Applying Prompt 1: Understanding Project Structure
+Prompt used: I'm a junior developer who just joined this project. I've read the README but still need help understanding the project structure and technology stack.
+
+Prompt Filled In With Real Project Details
+My current understanding:
+- It seems to be a task management app that runs in the terminal
+- It appears to use Python
+- The folder structure seems to follow one file per responsibility
+
+Project structure:
+TaskManager/
+├── cli.py, models.py, storage.py, task_manager.py
+├── task_list_merge.py, task_parser.py, task_priority.py
+└── tests/
+
+I'm confused about: models.py, task_parser.py, task_list_merge.py
+
+AI Response — Validated Understanding
+The AI confirmed the big picture was correct and corrected one key misconception: task_manager.py is NOT the entry point. cli.py is.
+
+Technologies Identified
+Library	Purpose
+argparse	Reads terminal commands and flags
+uuid	Generates unique IDs for each task
+enum	Defines fixed categories (priority, status)
+datetime	Handles due dates and timestamps
+json	Saves and loads task data from disk
+
+Each File's Purpose Explained
+File	Purpose
+cli.py	Front door — user types commands here (ENTRY POINT)
+task_manager.py	The brain — all the logic lives here
+models.py	Blueprint — defines what a Task looks like and what it can do
+storage.py	Memory — saves/loads tasks to a JSON file on disk
+task_priority.py	Scoring algorithm — ranks tasks by importance
+task_parser.py	Text parser — converts free text into Task objects
+task_list_merge.py	Merge — combines two separate task lists into one
+tests/	Automated tests — checks the code works correctly
+
+Application Entry Point
+The entry point is cli.py — specifically the main() function at the bottom. This is where Python starts when the app is run. The if __name__ == '__main__': block triggers main(), which sets up all the commands.
+
+# In cli.py — the entry point
+if __name__ == '__main__':
+    main()
+
+Architecture Pattern
+The project follows a Layered Architecture — each layer has one job and only communicates with the layer directly below it:
+
+cli.py          (user input layer)
+    |
+    v
+task_manager.py (business logic layer)
+    |
+    v
+storage.py      (data persistence layer)
+    |
+    v
+tasks.json      (data file on disk)
+
+models.py       (shared across all layers)
+
+3-5 Questions to Ask the Team
+•	Where does tasks.json get saved — is there a specific folder for it?
+•	When would someone need to merge two task lists — is this for teams sharing tasks?
+•	Are the tests currently passing and how do I run them?
+•	Is task_parser.py for importing tasks from another format like CSV?
+•	Is there a plan to add a proper database later instead of JSON?
+
+Step 4 — Documented Findings
+What AI Confirmed
+•	It is a task management app that runs from the terminal — correct
+•	It uses Python built-in libraries only — no pip install needed
+•	One file per responsibility pattern — correct
+•	Tasks are saved to a JSON file, not a database
+
+Misconceptions I Had
+My Initial Assumption	Correction
+task_manager.py is the entry point	cli.py is the entry point — task_manager.py is the logic layer
+models.py was unclear to me	It is the blueprint that defines what a Task looks like — fields, statuses, priorities
+I thought it might use a database	It uses a plain JSON file — tasks.json — no database at all
+
+Key Entry Points and Architectural Patterns
+•	Entry point: cli.py → main() function
+•	Architecture: Layered — cli → task_manager → storage → tasks.json
+•	Shared blueprint: models.py used across all layers
+•	No external dependencies — entirely self-contained Python
+
+Key Components and Their Responsibilities
+Component	Responsibility
+cli.py	Receives user commands and passes them to task_manager
+task_manager.py	Applies business rules — create, update, delete, filter tasks
+models.py	Defines Task blueprint with all fields and allowed statuses/priorities
+storage.py	Reads and writes task data to tasks.json on disk
+task_priority.py	Calculates importance scores and sorts tasks by urgency
+task_parser.py	Parses free-form text into structured Task objects
+task_list_merge.py	Combines two separate task lists into one unified list
+
+Bonus — Small Exploration Exercise
+AI suggested this exercise to verify understanding of the project structure:
+Try running: python cli.py and read the help output. Then try: python cli.py create 'My first task' -p 2. Check that tasks.json appears in the folder. This confirms your understanding of cli.py as the entry point and storage.py saving to disk.
