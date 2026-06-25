@@ -1,0 +1,327 @@
+Using AI to Help With Testing
+Task Priority Algorithm — Complete Exercise
+
+Part 1: Test Plan
+1.1 Behavior Analysis — My Initial Observations
+These are my honest answers before AI guided me — including gaps in my understanding.
+
+Question	My Answer	Correction
+What does the function do?	It calculates the score	Correct — weighted importance score based on 5 factors
+What behaviors to test?	Running code after debugging	Testing verifies outputs, not just runs code
+What edge cases worry you?	Not sure	No due date, DONE status, case-sensitive tags, 23hr update
+Which test to write first?	Recent activity	Priority base score — foundation everything builds on
+
+Behaviors Identified
+•	Priority level: LOW=10, MEDIUM=20, HIGH=40, URGENT=60 points
+•	Overdue tasks get +35 bonus points
+•	Due today +20, due in 2 days +15, due this week +10
+•	DONE status subtracts 50 points
+•	REVIEW status subtracts 15 points
+•	Tags blocker/critical/urgent add +8 — case sensitive!
+•	Updated today adds +5 points
+
+Edge Cases Identified
+Edge Case	Why It Matters
+No due date	Should not crash, score based on priority only
+Due exactly today	Hits the == 0 condition specifically
+URGENT + DONE combined	60 - 50 = 10, counterintuitive result
+Tag Blocker (capital B)	Gets no boost — silent bug without test
+Updated 23 hours ago	Still gets +5 — calendar days not hours
+Unknown priority value	.get() returns 0 — should this error?
+
+1.2 Structured Test Plan
+Test Dependencies Map
+models.py (Task, TaskPriority, TaskStatus)
+      |
+      v
+calculate_task_score()      <-- test FIRST
+      |
+      v
+sort_tasks_by_importance()  <-- test SECOND
+      |
+      v
+get_top_priority_tasks()    <-- test THIRD
+      |
+      v
+Integration tests           <-- test LAST
+
+Priority 1 — calculate_task_score() Tests
+Test Name	Input	Expected	Type
+test_low_priority_base_score	LOW, no due date, TODO	10	Unit
+test_medium_priority_base_score	MEDIUM, no due date	20	Unit
+test_high_priority_base_score	HIGH, no due date	40	Unit
+test_urgent_priority_base_score	URGENT, no due date	60	Unit
+test_overdue_task_score	LOW, due yesterday	45	Unit
+test_due_today_score	LOW, due today	30	Unit
+test_due_in_2_days_score	LOW, due in 2 days	25	Unit
+test_due_in_7_days_score	LOW, due in 7 days	20	Unit
+test_no_due_date_score	LOW, no due_date	10	Unit
+test_done_task_penalty	URGENT, DONE	10	Unit
+test_review_task_penalty	URGENT, REVIEW	45	Unit
+test_blocker_tag_boost	LOW, tags=[blocker]	18	Unit
+test_capital_tag_no_boost	LOW, tags=[Blocker]	10	Unit
+test_recent_update_boost	LOW, updated today	15	Unit
+
+Priority 2 — sort_tasks_by_importance() Tests
+Test Name	Input	Expected	Type
+test_sorts_highest_score_first	3 mixed tasks	URGENT at index 0	Unit
+test_returns_all_tasks	5 tasks	5 tasks out	Unit
+test_empty_list_sort	[]	[]	Unit
+test_tied_scores_order	2 same score	original order	Unit
+
+Priority 3 — get_top_priority_tasks() Tests
+Test Name	Input	Expected	Type
+test_default_limit_returns_five	10 tasks	5 tasks	Unit
+test_custom_limit	10 tasks, limit=3	3 tasks	Unit
+test_fewer_tasks_than_limit	3 tasks, limit=5	3 tasks	Unit
+test_empty_list_top_priority	[]	[]	Unit
+
+Part 2: Improved Unit Tests
+2.1 My First Simple Test
+My initial answer for the expected score was 0 — incorrect. After guidance I correctly identified LOW priority = 10 points.
+
+# My original simple test
+def test_calculate_task_score():
+    task = Task(title='Test task', priority=TaskPriority.LOW)
+    score = calculate_task_score(task)
+    assert score == 10
+
+Improved Test — After AI Guidance
+def test_low_priority_returns_base_score_of_10():
+    """
+    A LOW priority task with no due date, no tags,
+    and TODO status should return exactly 10 points.
+    LOW weight (1) x 10 = 10 base score.
+    """
+    # Arrange
+    task = Task(
+        title='Test task',
+        priority=TaskPriority.LOW,
+        due_date=None,
+        tags=[]
+    )
+    # Act
+    score = calculate_task_score(task)
+    # Assert
+    assert score == 10, f'Expected 10 but got {score}'
+
+What Improved
+•	Name describes exactly what is being tested
+•	Docstring explains WHY the score is 10
+•	Explicit due_date=None and tags=[] make assumptions visible
+•	Better assertion message shows actual vs expected value
+•	Follows Arrange-Act-Assert pattern
+
+2.2 Due Date Test Suite
+def test_overdue_task_adds_35_points():
+    yesterday = datetime.now() - timedelta(days=1)
+    task = Task(title='Overdue', priority=TaskPriority.LOW,
+                due_date=yesterday, tags=[])
+    assert calculate_task_score(task) == 45  # 10 + 35
+
+def test_due_today_adds_20_points():
+    task = Task(title='Due today', priority=TaskPriority.LOW,
+                due_date=datetime.now())
+    assert calculate_task_score(task) == 30  # 10 + 20
+
+def test_due_in_2_days_adds_15_points():
+    task = Task(title='Due soon', priority=TaskPriority.LOW,
+                due_date=datetime.now() + timedelta(days=2))
+    assert calculate_task_score(task) == 25  # 10 + 15
+
+def test_due_in_7_days_adds_10_points():
+    task = Task(title='Due this week', priority=TaskPriority.LOW,
+                due_date=datetime.now() + timedelta(days=7))
+    assert calculate_task_score(task) == 20  # 10 + 10
+
+def test_due_in_8_days_adds_no_bonus():
+    task = Task(title='Due later', priority=TaskPriority.LOW,
+                due_date=datetime.now() + timedelta(days=8))
+    assert calculate_task_score(task) == 10  # no bonus
+
+def test_no_due_date_no_crash():
+    task = Task(title='No deadline', priority=TaskPriority.LOW,
+                due_date=None)
+    assert calculate_task_score(task) == 10
+
+def test_overdue_done_task_score():
+    task = Task(title='Overdue done', priority=TaskPriority.LOW,
+                due_date=datetime.now() - timedelta(days=1))
+    task.mark_as_done()
+    assert calculate_task_score(task) == -5  # 10 + 35 - 50
+
+Part 3: Test-Driven Development
+3.1 TDD for New Feature — Assigned User Boost (+12)
+TDD rule: Write a FAILING test first, then write minimal code to make it pass.
+
+Step 1 — Failing Test First
+def test_assigned_to_current_user_adds_12_points():
+    """TDD: This test fails BEFORE feature is added."""
+    task = Task(
+        title='My task',
+        priority=TaskPriority.LOW,
+        assigned_to='current_user'
+    )
+    score = calculate_task_score(task, current_user='current_user')
+    assert score == 22  # 10 + 12
+
+Step 2 — Minimal Code to Pass
+def calculate_task_score(task, current_user=None):
+    # ... existing code unchanged ...
+    # NEW: boost for assigned user
+    if current_user and hasattr(task, 'assigned_to'):
+        if task.assigned_to == current_user:
+            score += 12
+    return score
+
+Step 3 — Next Tests
+def test_unassigned_task_gets_no_boost():
+    task = Task(title='Other task', priority=TaskPriority.LOW,
+                assigned_to='other_user')
+    score = calculate_task_score(task, current_user='current_user')
+    assert score == 10  # no boost
+
+def test_no_current_user_gets_no_boost():
+    task = Task(title='Task', priority=TaskPriority.LOW,
+                assigned_to='current_user')
+    score = calculate_task_score(task)  # no current_user param
+    assert score == 10  # no boost
+
+def test_assigned_boost_combines_with_overdue():
+    task = Task(title='My overdue task', priority=TaskPriority.LOW,
+                due_date=datetime.now() - timedelta(days=1),
+                assigned_to='current_user')
+    score = calculate_task_score(task, current_user='current_user')
+    assert score == 57  # 10 + 35 + 12
+
+TDD Cycle Summary
+Cycle	Action	Result
+RED	Write failing test for assigned boost	Test fails — feature not yet added
+GREEN	Add current_user parameter and if statement	Test passes
+RED	Write test for unassigned task	Passes immediately — logic handles it
+RED	Write test for no current_user	Passes — default None handles it
+REFACTOR	Check for duplication or clarity issues	No refactoring needed
+
+3.2 TDD for Bug Fix — Days Since Update
+Step 1 — Test Reproducing the Bug
+def test_task_updated_today_gets_5_point_boost():
+    """Reproduces bug where recent updates get wrong bonus."""
+    task = Task(title='Recently updated', priority=TaskPriority.LOW)
+    task.updated_at = datetime.now() - timedelta(hours=1)
+    assert calculate_task_score(task) == 15  # 10 + 5
+
+def test_task_updated_yesterday_gets_no_boost():
+    task = Task(title='Updated yesterday', priority=TaskPriority.LOW)
+    task.updated_at = datetime.now() - timedelta(hours=25)
+    assert calculate_task_score(task) == 10  # no boost
+
+Step 2 — The Fix
+# BUGGY — using total seconds
+days_since_update = (datetime.now() - task.updated_at).total_seconds() / 86400
+
+# FIXED — use .days for calendar days
+days_since_update = (datetime.now() - task.updated_at).days
+
+Regression Tests
+def test_task_updated_23_hours_ago_gets_boost():
+    task = Task(title='Test', priority=TaskPriority.LOW)
+    task.updated_at = datetime.now() - timedelta(hours=23)
+    assert calculate_task_score(task) == 15  # still today
+
+def test_task_updated_3_days_ago_no_boost():
+    task = Task(title='Test', priority=TaskPriority.LOW)
+    task.updated_at = datetime.now() - timedelta(days=3)
+    assert calculate_task_score(task) == 10  # no boost
+
+Part 4: Integration Tests
+Test Data Design — Five Tasks With Predictable Scores
+Task	Factors	Expected Score
+Urgent this week	URGENT + due in 7 days	70 (60+10)
+High due today	HIGH + due today	60 (40+20)
+Overdue blocker	LOW + overdue + blocker tag	53 (10+35+8)
+Medium no deadline	MEDIUM only	20
+Completed urgent	URGENT + DONE	10 (60-50)
+
+Full Integration Test
+def test_full_priority_workflow():
+    """
+    Integration test: verifies all three functions
+    work correctly together end to end.
+    """
+    # Arrange
+    urgent_this_week = Task(title='Urgent this week',
+        priority=TaskPriority.URGENT,
+        due_date=datetime.now() + timedelta(days=7))  # 70pts
+
+    high_due_today = Task(title='High due today',
+        priority=TaskPriority.HIGH,
+        due_date=datetime.now())  # 60pts
+
+    overdue_blocker = Task(title='Overdue blocker',
+        priority=TaskPriority.LOW,
+        due_date=datetime.now() - timedelta(days=1),
+        tags=['blocker'])  # 53pts
+
+    medium_no_deadline = Task(title='Medium no deadline',
+        priority=TaskPriority.MEDIUM)  # 20pts
+
+    completed_urgent = Task(title='Completed urgent',
+        priority=TaskPriority.URGENT)
+    completed_urgent.mark_as_done()  # 10pts
+
+    tasks = [overdue_blocker, completed_urgent,
+             high_due_today, medium_no_deadline, urgent_this_week]
+
+    # Act
+    top_tasks = get_top_priority_tasks(tasks, limit=5)
+
+    # Assert — verify correct order
+    assert top_tasks[0].title == 'Urgent this week'   # 70
+    assert top_tasks[1].title == 'High due today'     # 60
+    assert top_tasks[2].title == 'Overdue blocker'    # 53
+    assert top_tasks[3].title == 'Medium no deadline' # 20
+    assert top_tasks[4].title == 'Completed urgent'   # 10
+    assert len(top_tasks) == 5
+
+def test_integration_empty_list():
+    assert get_top_priority_tasks([], limit=5) == []
+
+def test_integration_overdue_beats_higher_priority():
+    low_overdue = Task(title='Low overdue',
+        priority=TaskPriority.LOW,
+        due_date=datetime.now() - timedelta(days=1))  # 45pts
+    high_no_deadline = Task(title='High no deadline',
+        priority=TaskPriority.HIGH)  # 40pts
+    result = get_top_priority_tasks(
+        [high_no_deadline, low_overdue], limit=2)
+    assert result[0].title == 'Low overdue'
+
+def test_integration_limit_respected():
+    tasks = [Task(title=f'Task {i}',
+             priority=TaskPriority.LOW) for i in range(10)]
+    assert len(get_top_priority_tasks(tasks, limit=3)) == 3
+
+Part 5: Reflections
+What I Learned About Testing
+•	Testing is about verifying outputs match expectations — not just running code
+•	Test names should describe exactly what is being tested — a good name makes the test self-documenting
+•	Arrange-Act-Assert pattern makes tests readable and consistent
+•	Test dependencies must be respected — unit tests before integration tests
+•	TDD forces you to think about behavior before writing code — catches design problems early
+•	Edge cases matter as much as normal cases — capital Blocker tag silently fails without a test
+•	AI helped identify behaviors I missed — REVIEW penalty, case-sensitive tags, 23-hour update quirk
+
+TDD Key Lessons
+•	RED-GREEN-REFACTOR is a discipline — always write the failing test first
+•	Minimal code means just enough to pass — resist adding extra logic
+•	Refactor only after tests are green — never while tests are failing
+•	Each new behavior gets its own test — never test two things in one assertion
+
+Integration Testing Key Lessons
+•	Design test data deliberately — choose values that make expected scores easy to calculate
+•	Test the order, not just the count — verify WHICH task is at position 0
+•	Test surprising cases — overdue LOW beats on-time HIGH shows real system behavior
+•	Always test empty list — every function that takes a list should handle [] gracefully
+
+My Testing Journey
+I started not knowing the difference between testing and running code. By the end I could write unit tests, integration tests, TDD tests, and bug reproduction tests — all with correct assertions and clear names.
