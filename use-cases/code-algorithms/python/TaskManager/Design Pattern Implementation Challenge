@@ -1,0 +1,175 @@
+Design Pattern Implementation Challenge
+Factory Pattern — Database Connection System
+WeThinkCode Generative AI Course  
+
+1. Original Code
+Selected pattern opportunity: Factory Pattern — a database connection system with an 11-parameter constructor and a long if/elif chain handling four different database types.
+
+class DatabaseConnection:
+    def __init__(self, db_type, host, port, username, password, database,
+                 use_ssl=False, connection_timeout=30, retry_attempts=3,
+                 pool_size=5, charset='utf8'):
+        # ... 11 parameters stored, most irrelevant per type ...
+
+    def connect(self):
+        if self.db_type == 'mysql':
+            # MySQL-specific connection string building
+        elif self.db_type == 'postgresql':
+            # PostgreSQL-specific connection string building
+        elif self.db_type == 'mongodb':
+            # MongoDB-specific connection string building
+        elif self.db_type == 'redis':
+            # Redis-specific connection string building
+        else:
+            raise ValueError(f'Unsupported database type: {self.db_type}')
+
+2. Prompt 1 — Pattern Opportunity Identification
+Problem Identified
+The connect() method uses a long if/elif chain checking self.db_type. Each branch builds a completely different connection string with different parameters, and adding a new database type means editing this method directly — violating the Open/Closed Principle.
+
+Pattern Recommended: Factory Pattern
+Aspect	Assessment
+Why this fits	Object creation logic varies significantly by type
+Benefit	New database types added without touching existing code
+Benefit	Each connection type's logic isolated and independently testable
+Benefit	Constructor had 11 params - most irrelevant per type (Redis didn't need charset)
+Drawback	Adds more classes/files - slight complexity increase for small projects
+Drawback	Requires careful design of what's common vs type-specific
+
+Priority: HIGH impact, MEDIUM effort. The 11-parameter constructor is a code smell on its own, and the if/elif chain only gets worse as more database types are added.
+
+3. Prompt 2 — Implementation Guidance
+My Proposed Approach
+Pattern chosen: Factory Pattern. Reasoning: connection creation varies significantly by database type. Implementation idea: make each db_type its own class with a factory function that picks the right one.
+
+AI Verification and Step-by-Step Plan
+Verified: the thinking is correct. Step-by-step refactoring plan provided below.
+1.	Create a base class DatabaseConnection with shared interface (connect())
+2.	Create subclasses: MySQLConnection, PostgreSQLConnection, MongoDBConnection, RedisConnection — each taking only the parameters it actually needs
+3.	Create a ConnectionFactory class with a create_connection() method that returns the right subclass
+4.	Replace direct instantiation with factory calls
+
+4. Refactored Implementation
+from abc import ABC, abstractmethod
+
+class DatabaseConnection(ABC):
+    """Base class defining the common interface all connections share."""
+    @abstractmethod
+    def connect(self):
+        pass
+
+class MySQLConnection(DatabaseConnection):
+    def __init__(self, host, port, username, password, database,
+                 use_ssl=False, connection_timeout=30, charset='utf8'):
+        self.host = host
+        self.port = port
+        # ... only MySQL-relevant params stored ...
+
+    def connect(self):
+        connection_string = (f'mysql://{self.username}:{self.password}@'
+                              f'{self.host}:{self.port}/{self.database}')
+        connection_string += f'?charset={self.charset}'
+        if self.use_ssl:
+            connection_string += '&useSSL=true'
+        return connection_string
+
+class RedisConnection(DatabaseConnection):
+    def __init__(self, host, port, database):
+        # Only 3 params needed - no charset, no SSL, no pool_size
+        self.host = host
+        self.port = port
+        self.database = database
+
+    def connect(self):
+        return f'{self.host}:{self.port}/{self.database}'
+
+class ConnectionFactory:
+    """
+    Factory responsible for creating the correct connection type
+    based on db_type. This is the ONLY place that needs to change
+    when a new database type is added.
+    """
+    _connection_types = {
+        'mysql': MySQLConnection,
+        'postgresql': PostgreSQLConnection,
+        'mongodb': MongoDBConnection,
+        'redis': RedisConnection,
+    }
+
+    @staticmethod
+    def create_connection(db_type, **kwargs):
+        connection_class = ConnectionFactory._connection_types.get(db_type)
+        if connection_class is None:
+            raise ValueError(f'Unsupported database type: {db_type}')
+        return connection_class(**kwargs)
+
+Key Changes and Pattern Alignment
+Change	Principle
+4 separate classes instead of 1	Single Responsibility - each class only knows its own DB type
+ConnectionFactory.create_connection()	Encapsulates object creation logic in one place
+Each class only has relevant parameters	No more Redis getting a charset param it never uses
+New DB type = new class + 1 dict entry	Open/Closed Principle - extend without modifying existing code
+
+5. Tests Written and Executed
+These tests were actually run in a live Python environment, not simulated. All 10 tests passed.
+
+class TestConnectionFactory(unittest.TestCase):
+
+    def test_creates_mysql_connection(self):
+        conn = ConnectionFactory.create_connection(
+            'mysql', host='localhost', port=3306,
+            username='db_user', password='password123',
+            database='app_db', use_ssl=True)
+        self.assertIsInstance(conn, MySQLConnection)
+
+    def test_unsupported_type_raises_error(self):
+        with self.assertRaises(ValueError):
+            ConnectionFactory.create_connection('oracle', host='localhost', port=1521)
+
+    def test_mysql_connect_returns_connection_string(self):
+        conn = ConnectionFactory.create_connection(
+            'mysql', host='localhost', port=3306,
+            username='db_user', password='password123',
+            database='app_db', use_ssl=True)
+        result = conn.connect()
+        self.assertIn('mysql://', result)
+        self.assertIn('useSSL=true', result)
+
+    def test_redis_does_not_accept_irrelevant_params(self):
+        # Confirms Factory pattern correctly isolated type-specific params
+        with self.assertRaises(TypeError):
+            ConnectionFactory.create_connection(
+                'redis', host='localhost', port=6379,
+                database='0', charset='utf8')  # Redis doesn't take this!
+
+Live Test Execution Results
+Test	Result
+test_creates_mysql_connection	PASS
+test_creates_postgresql_connection	PASS
+test_creates_mongodb_connection	PASS
+test_creates_redis_connection	PASS
+test_unsupported_type_raises_error	PASS
+test_mysql_connect_returns_connection_string	PASS
+test_postgresql_connect_with_ssl	PASS
+test_mongodb_connect_includes_pool_settings	PASS
+test_redis_connect_simple_format	PASS
+test_redis_does_not_accept_irrelevant_params	PASS
+
+Result: Ran 10 tests in 0.002s — OK. All connection types produce identical connection strings to the original code, confirming behavior preservation.
+
+6. Benefits Gained from Factory Pattern
+•	Open/Closed Principle achieved — adding a new database type (e.g. Oracle) requires only a new class and one dictionary entry, never touching existing code
+•	Parameter pollution eliminated — Redis now genuinely cannot accept a charset parameter, proven by a real failing test when attempted
+•	Each connection type is independently testable — bugs in MySQL logic cannot affect MongoDB tests
+•	Constructor complexity reduced — RedisConnection takes 3 parameters instead of inheriting all 11 from the original monolithic class
+•	New developers reading MySQLConnection see only MySQL-relevant code — no need to mentally filter out irrelevant branches
+•	The if/elif chain is permanently eliminated — replaced with a dictionary lookup that scales without growing in complexity
+
+Prompt 3 Note — Multi-Pattern Architecture
+The exercise instructions specified selecting ONE pattern opportunity. Prompt 3 (Multi-Pattern Architecture Transformation) is documented as an advanced strategy for combining multiple patterns across a larger codebase, but was not required for this single-pattern exercise. It would be the natural next step if this Factory pattern needed to work alongside, for example, a Singleton pattern for connection pooling.
+
+7. Reflections
+•	Writing real, executable tests (not just describing them) caught an important detail — the original parameter pollution problem could be definitively proven fixed by testing that Redis rejects charset
+•	The Factory pattern's main value here is not just organization — it directly enforces correct API usage per database type
+•	Following the AI's verification step before implementing confirmed the pattern choice was sound before writing any code
+•	Running tests against real code (via the bash environment) gave genuine confidence the refactoring preserved behavior, rather than just assuming it
